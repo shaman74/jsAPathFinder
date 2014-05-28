@@ -1,0 +1,35 @@
+
+<html>
+<head>
+<script src="js\common.js"></script>
+<script src="js\pathfinder.js"></script>
+<script src="js\main.js"></script>
+<title>Javascript A* Pathfinding Algorithm</title>
+</head>
+<body style="font-family: verdana; background: white;">
+
+<div id="drawArea" style="float:left; width:512px; margin: 0px 20px 0px 10px; border: 0px solid yellow; ">
+  <canvas id="playground" width="512px" height="512px" style="position: relative; border:1px solid #000000;" />
+</div>
+
+<div id="infoArea" style="border: 0px solid red;">
+
+<button id="startPathFinding" style="width: 100px;margin:5px;" onclick="startPathFinding()">jsA*</button><br />
+<button id="resetDemo" style="width: 100px;margin:5px;" onclick="resetDemo()">reset map</button>
+<button id="savePicture" style="width: 100px;margin:5px;" onclick="savePicture()">save img</button><br />
+<button id="saveData" style="width: 100px;margin:5px;" onclick="saveData()">save data</button>
+<button id="loadData" style="width: 100px;margin:5px;" onclick="loadData()">load data</button><br />
+
+<p id="text">Click the picture to select START point</p>
+
+<textarea name="log" id="logarea" rows="23" cols="50" ></textarea>
+
+</div>
+
+<script>
+	initDemo();
+</script>
+
+
+</body>
+</html>
