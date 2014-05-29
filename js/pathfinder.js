@@ -36,13 +36,17 @@ function findItemAtPos(list, x, y) {
 	return result;
 }
 
+// ---------------------------------------------------------------------------
+function Heuristic(sx,sy,ex,ey) {
+	return  ( Math.pow(sx-ex,2) + Math.pow(sy-ey,2) );						
+}
 	
 // ---------------------------------------------------------------------------
-function runPathFinder(grid, firstPoint, lastPoint) {
+function runPathFinder(grid, startPoint, endPoint) {
 	var start = new Date();
 	// add starting point to the list
 	var openList = new Array();
-	openList.push(new listItem(firstPoint.x,firstPoint.y,0,0,0));
+	openList.push(new listItem(startPoint.x,startPoint.y,0,0,0));
 	// start the path finding
 	cycle=0;
 	deadend=false;
@@ -86,7 +90,7 @@ function runPathFinder(grid, firstPoint, lastPoint) {
 					}
 					else
 					{
-						var nh = ((nx-lastPoint.x)*(nx-lastPoint.x) + (ny-lastPoint.y)*(ny-lastPoint.y));						
+						var nh = Heuristic(nx,ny,endPoint.x,endPoint.y);
 						var ng = g + cost;
 						var nf = nh + ng;
 						var target = new listItem(nx,ny,ng,nh,nf);
@@ -104,7 +108,7 @@ function runPathFinder(grid, firstPoint, lastPoint) {
 			deadend=true;
 		
 		// found it!
-		if ( (x==lastPoint.x) && (y==lastPoint.y) )
+		if ( (x==endPoint.x) && (y==endPoint.y) )
 			success=true;
 		
 		cycle++;	
@@ -119,9 +123,9 @@ function runPathFinder(grid, firstPoint, lastPoint) {
 	if (success==true) 
 	{
 		output = new Array();
-		x=lastPoint.x;
-		y=lastPoint.y;
-		while ( ! ( (x==fp.x) && (y==fp.y) ) )
+		x=endPoint.x;
+		y=endPoint.y;
+		while ( ! ( (x==startPoint.x) && (y==startPoint.y) ) )
 		{
 			var px=matrix[x][y].px;
 			var py=matrix[x][y].py;
