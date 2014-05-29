@@ -60,18 +60,7 @@ function createMatrix() {
 		matrix[x] = new Array(matrixSize);
 		for (var y=0; y<matrixSize; y++) {
 			matrix[x][y] = new matrixPoint(CELL_EMPTY);
-			if (Math.floor(Math.random()+0.52)==1)
-				matrix[x][y].value=CELL_FILLED;
 		}	
-	}
-	// borders
-	for (var x=0; x<matrixSize; x++) {
-		matrix[x][0].value=CELL_FILLED;
-		matrix[x][matrixSize-1].value=CELL_FILLED;
-	}
-	for (var y=0; y<matrixSize; y++) {
-		matrix[0][y].value=CELL_FILLED;
-		matrix[matrixSize-1][y].value=CELL_FILLED;
 	}
 }
 
