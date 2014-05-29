@@ -38,7 +38,7 @@ function findItemAtPos(list, x, y) {
 
 // ---------------------------------------------------------------------------
 function Heuristic(sx,sy,ex,ey) {
-	return  ( Math.pow(sx-ex,2) + Math.pow(sy-ey,2) );						
+	return  ( Math.abs(sx-ex) + Math.abs(sy-ey) );						
 }
 	
 // ---------------------------------------------------------------------------
