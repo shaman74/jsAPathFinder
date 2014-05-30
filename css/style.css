@@ -1,0 +1,54 @@
+
+body
+{
+	font-family: verdana; 
+	font-size:12px; 
+	background: white; 
+	margin:0px; 
+	padding:5px;
+}
+
+p
+{
+	margin:0px; 
+	padding:0px;
+}
+
+button
+{
+	width: 100px;
+	margin:5px;
+}
+
+
+
+/* canvas area */
+
+#drawArea
+{
+	position: absolute;  
+	padding: 10px; 
+	border: 1px solid blue;
+}
+
+
+
+/* data area */
+
+#infoArea
+{
+	position: absolute;
+	left: 550px;
+	height: 536px;
+	border: 1px solid black;
+}
+
+.infoAreaSection
+{
+	border:1px solid #888888; 
+	margin:2px; 
+	padding:2px;
+}
+
+
+
