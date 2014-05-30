@@ -6,39 +6,51 @@
 // ------------------------------------------------------------------
 //
 // Coded by Matteo Poropat (http://www.matteoporopat.com)
-// Version: 27/05/2014
+// Version: 30/05/2014
 //
 // ------------------------------------------------------------------
 
 
-// =================================================================================
+// =========================================================================
 // DEFINITIONS
-// =================================================================================
+// =========================================================================
 
 var clicknum = 0;
-var fp = new mapPoint(0,0);
-var lp = new mapPoint(0,0);
-var matrix=null;
-var matrixSize=128;
+var grid=null;
+var gridSize=64;
 var canvasSize=512;
-var rate = Math.floor(canvasSize/matrixSize);
+var startPoint = new Point(5,5);
+var endPoint = new Point(gridSize-5,gridSize-5);
+var rate = Math.floor(canvasSize/gridSize);
 var canvasctx = 0;
+var isDrawing = false; // is manual drawing on the grid
+var drawingState = false; // toggle the manual drawing state
 
-const CELL_EMPTY = 0;
-const CELL_FILLED = 1;
-const CELL_OPN_LIST = 2;
-const CELL_CLS_LIST = 3;
-const CELL_LIMIT = 4;
-
-var CELL_COLOR_ARRAY = new Array("rgb(153,0,0)", "rgb(30,0,0)", "rgb(20,200,20)", "rgb(0,0,150)", "rgb(250,250,250)");
+// cell type and colors
+const CELL_EMPTY = 0; // empty
+const CELL_FILLED = 1; // filled
+const CELL_OPN_LIST = 2; // open list
+const CELL_CLS_LIST = 3; // closed list
+const CELL_PATH = 4; // path
+const CELL_START = 5; // path
+const CELL_END = 6; // path
+const CELL_COLOR_ARRAY = new Array(
+	"rgb(153,0,0)", 
+	"rgb(0,0,0)", 
+	"rgb(20,170,20)", 
+	"rgb(0,0,170)", 
+	"rgb(250,250,250)",
+	"rgb(0,255,0)",
+	"rgb(255,0,0)"
+	);
 
 // simple point on the map object
-function mapPoint(x,y) {
+function Point(x,y) {
 	this.x=x;
 	this.y=y;
 }	
 
-function matrixPoint(v) {
+function gridPoint(v) {
 	this.value=v;
 	this.ol=false; // point in openlist
 	this.cl=false; // point in closedlist
@@ -47,95 +59,167 @@ function matrixPoint(v) {
 }
 
 
-// =================================================================================
-// FUNCTIONS
-// =================================================================================
+// =========================================================================
+// GRID FUNCTIONS
+// =========================================================================
 
 // -------------------------------------------------------------------------
 // instantiate grid elements and insert random obstacle and border cells
 // -------------------------------------------------------------------------
-function createMatrix() {
-	matrix=new Array(matrixSize);
-	for (var x=0; x<matrixSize; x++) {
-		matrix[x] = new Array(matrixSize);
-		for (var y=0; y<matrixSize; y++) {
-			matrix[x][y] = new matrixPoint(CELL_EMPTY);
+function createGrid() {
+	grid=new Array(gridSize);
+	for (var x=0; x<gridSize; x++) {
+		grid[x] = new Array(gridSize);
+		for (var y=0; y<gridSize; y++) {
+			grid[x][y] = new gridPoint(CELL_EMPTY);
 		}	
 	}
 }
 
 
 // -------------------------------------------------------------------------
-// mouse position referred to the canvas
+// reset grid cells and draw borders
 // -------------------------------------------------------------------------
-function getCursorPosition (e) {    
-	var x;
-    var y;    
-	if (e.pageX || e.pageY) {
-		x = e.pageX;
-		y = e.pageY;    
-	}    
-	else 
-	{      
-		x = e.clientX + document.body.scrollLeft + document.documentElement.scrollLeft;      
-		y = e.clientY + document.body.scrollTop + document.documentElement.scrollTop;   
-	}	
-	var cv = document.getElementById('playground');
-	x -= cv.offsetLeft;
-	y -= cv.offsetTop;
-	return new mapPoint(x,y);
+function resetGrid(resetCell) {
+	for (var x=0; x<gridSize; x++) {
+		for (var y=0; y<gridSize; y++) {
+			if (resetCell==true)
+				grid[x][y].value = CELL_EMPTY;
+			grid[x][y].ol=false; 
+			grid[x][y].cl=false; 
+			grid[x][y].px=0;
+			grid[x][y].py=0;
+		}	
+	}
+	// borders
+	for (var x=0; x<gridSize; x++) {
+		grid[x][0].value=CELL_FILLED;
+		grid[x][gridSize-1].value=CELL_FILLED;
+	}
+	for (var y=0; y<gridSize; y++) {
+		grid[0][y].value=CELL_FILLED;
+		grid[gridSize-1][y].value=CELL_FILLED;
+	}
 }
 
 
 // -------------------------------------------------------------------------
-// intercept mouse click on canvas
+// randomize grid
 // -------------------------------------------------------------------------
-function canvasOnClick (e) {    
+function randomGrid() {
+	resetGrid();
+	for (var x=1; x<gridSize-1; x++) {
+		for (var y=1; y<gridSize-1; y++) {
+			if (Math.floor(Math.random()+0.52)==1)
+				grid[x][y].value=CELL_FILLED;
+			else
+				grid[x][y].value=CELL_EMPTY;
+		}	
+	}
+}
+
+
+// -------------------------------------------------------------------------
+// clear grid
+// -------------------------------------------------------------------------
+function clearGrid() {
+	for (var x=0; x<gridSize; x++) {
+		for (var y=0; y<gridSize; y++) {
+			grid[x][y].value = CELL_EMPTY;
+		}	
+	}
+}
+
+
+
+// =========================================================================
+// CANVAS FUNCTIONS
+// =========================================================================
+
+// -------------------------------------------------------------------------
+function getCursorPosition (e) {    
+	var coords = document.getElementById('playground').relMouseCoords(event);
+	return new Point(coords.x,coords.y);
+}
+
+
+// -------------------------------------------------------------------------
+//  set a grid point when clicked
+// -------------------------------------------------------------------------
+function setGridPoint() {    
+	var e = window.event;
 	var mp = getCursorPosition(e);
-	mp.x = Math.floor(mp.x/rate);
-	mp.y = Math.floor(mp.y/rate);
-	if (matrix[mp.x][mp.y].value==CELL_EMPTY)
+	mp.x=Math.floor(mp.x/rate);
+	mp.y=Math.floor(mp.y/rate);
+	// if drawingState==true we are drawing manually on the grid
+	// else we are setting start and end point of the path
+	if (drawingState)
 	{
-		if (clicknum==0)
-		{
-			fp.x = mp.x;
-			fp.y = mp.y;
-			clicknum=1;
-			document.getElementById('text').innerHTML="Click the picture to select END point";
-		}
-		else
-		{
-			lp.x = mp.x;
-			lp.y = mp.y;
-			clicknum=0;
-			document.getElementById('startPathFinding').disabled=false;
-			document.getElementById('text').innerHTML="Now you can start jsA* path finder";
-		}
-		drawPoint(mp.x,mp.y,CELL_LIMIT);
+		var value=(isRightButton(e))?CELL_EMPTY:CELL_FILLED;
+		drawPoint(mp.x,mp.y,value);
+		grid[mp.x][mp.y].value=value;
 	}
 	else
 	{
-		document.getElementById('text').innerHTML="You must select a EMPTY cell!";	
+		var rb=isRightButton(e);
+		var value=(rb)?CELL_END:CELL_START;
+		if (rb) 
+		{
+			drawPoint(endPoint.x,endPoint.y,CELL_EMPTY);
+			endPoint=mp;
+		}
+		else
+		{
+			drawPoint(startPoint.x,startPoint.y,CELL_EMPTY);
+			startPoint=mp;
+		}
+		drawPoint(mp.x,mp.y,value);
 	}
+}
+
+
+// -------------------------------------------------------------------------
+// intercept mouse move on canvas
+// -------------------------------------------------------------------------
+function canvasOnMouseMove () {    
+	if (isDrawing)
+		setGridPoint();
+}
+
+// -------------------------------------------------------------------------
+// intercept mouse move on canvas
+// -------------------------------------------------------------------------
+function canvasOnMouseDown () {    
+	isDrawing=true;
+}
+
+// -------------------------------------------------------------------------
+// intercept mouse move on canvas
+// -------------------------------------------------------------------------
+function canvasOnMouseUp () {    
+	isDrawing=false;
+	setGridPoint();
 }
 
 
 // -------------------------------------------------------------------------
 // draw the grid into the canvas
 // -------------------------------------------------------------------------
-function drawPlayGround() {
-	for (var x=0; x<matrixSize; x++) {
-		for (var y=0; y<matrixSize; y++) {
-			var value=matrix[x][y].value;
-			if (matrix[x][y].ol) {
+function drawGrid() {
+	for (var x=0; x<gridSize; x++) {
+		for (var y=0; y<gridSize; y++) {
+			var value=grid[x][y].value;
+			if (grid[x][y].ol) {
 				value=CELL_OPN_LIST;
 			}
-			if (matrix[x][y].cl) {
+			if (grid[x][y].cl) {
 				value=CELL_CLS_LIST;
 			}
-			this.drawPoint(x,y,value);
+			drawPoint(x,y,value);
 		}	
 	}	
+	drawPoint(startPoint.x,startPoint.y,CELL_START);
+	drawPoint(endPoint.x,endPoint.y,CELL_END);
 }
 
 
@@ -148,85 +232,104 @@ function drawPoint(x,y,type) {
 }
 
 
-// =================================================================================
+
+// =========================================================================
 // EXPORTED FUNCTIONS
-// =================================================================================
+// =========================================================================
 
-
+// -------------------------------------------------------------------------
+// save canvas to file
 // -------------------------------------------------------------------------
 function savePicture() {
 	saveCanvasToFile('playground');
 }
 
 
-// ---------------------------------------------------------------------------------
+// -------------------------------------------------------------------------
+// save data to local storage
+// -------------------------------------------------------------------------
 function saveData() {
 	log ("logarea", "saving to storage");
-    localStorage["mainpf.matrixSize"] = matrixSize;
-	for (var x=0; x<matrixSize; x++) {
-		for (var y=0; y<matrixSize; y++) {
-			localStorage["mainpf.matrix."+x+"."+y] = matrix[x][y].value;
+    localStorage["mainpf.gridSize"] = gridSize;
+	for (var x=0; x<gridSize; x++) {
+		for (var y=0; y<gridSize; y++) {
+			localStorage["mainpf.grid."+x+"."+y] = grid[x][y].value;
 		}	
 	}
 	log ("logarea", "saved");
 }
 
 
-// ---------------------------------------------------------------------------------
+// -------------------------------------------------------------------------
+// load data from local storage
+// -------------------------------------------------------------------------
 function loadData() {
 	log ("logarea", "loading from storage");
-    matrixSize = parseInt(localStorage["mainpf.matrixSize"]);
-	log ("logarea", "matrixSize="+matrixSize);
+    gridSize = parseInt(localStorage["mainpf.gridSize"]);
+	log ("logarea", "gridSize="+gridSize);
 
-	for (var x=0; x<matrixSize; x++) {
-		for (var y=0; y<matrixSize; y++) {
-			matrix[x][y].value = parseInt(localStorage["mainpf.matrix."+x+"."+y]);
-			matrix[x][y].ol=false; 
-			matrix[x][y].cl=false; 
-			matrix[x][y].px=0;
-			matrix[x][y].py=0;
+	for (var x=0; x<gridSize; x++) {
+		for (var y=0; y<gridSize; y++) {
+			grid[x][y].value = parseInt(localStorage["mainpf.grid."+x+"."+y]);
+			grid[x][y].ol=false; 
+			grid[x][y].cl=false; 
+			grid[x][y].px=0;
+			grid[x][y].py=0;
 		}	
 	}
 	log ("logarea", "loaded");
-	drawPlayGround();
+	drawGrid();
 }
 
 
 // -------------------------------------------------------------------------
-// reset grid cells
+// create a new grid with randomized cells
 // -------------------------------------------------------------------------
-function resetDemo() {
-	for (var x=0; x<matrixSize; x++) {
-		for (var y=0; y<matrixSize; y++) {
-			if (Math.floor(Math.random()+0.52)==1)
-				matrix[x][y].value=CELL_FILLED;
-			else
-				matrix[x][y].value = CELL_EMPTY;
-			matrix[x][y].ol=false; 
-			matrix[x][y].cl=false; 
-			matrix[x][y].px=0;
-			matrix[x][y].py=0;
-		}	
-	}
-	// borders
-	for (var x=0; x<matrixSize; x++) {
-		matrix[x][0].value=CELL_FILLED;
-		matrix[x][matrixSize-1].value=CELL_FILLED;
-	}
-	for (var y=0; y<matrixSize; y++) {
-		matrix[0][y].value=CELL_FILLED;
-		matrix[matrixSize-1][y].value=CELL_FILLED;
-	}
-	drawPlayGround();
+function randomizeGrid() {
+	clearGrid();
+	randomGrid();
+	drawGrid();
 }
 
 
+// -------------------------------------------------------------------------
+// manual draw grid
+// -------------------------------------------------------------------------
+function manualDraw() {
+	drawingState = !drawingState;
+	if (drawingState) 
+	{
+		document.getElementById('manualDraw').innerHTML="stop drawing";
+	}
+	else
+	{
+		document.getElementById('manualDraw').innerHTML="draw";
+	}
+}
+
+
+// -------------------------------------------------------------------------
+// start path finding
 // -------------------------------------------------------------------------
 function startPathFinding() {
+	// get the selected heuristic function
+	var heuristics = document.getElementsByName("hFunctionGrp");
+	var h=0;
+	for(var i = 0; i < heuristics.length; i++) {
+	   if(heuristics[i].checked == true) {
+		   h = parseInt(heuristics[i].value);
+	   }
+	}
+	log ("logarea", "heuristic="+h);
+	// read cost values
+	var lCost = parseInt(document.getElementById('lCost').value);
+	var dCost = parseInt(document.getElementById('dCost').value);
+	log ("logarea", "linear cost="+lCost);
+	log ("logarea", "diagonal cost="+dCost);
 	// exec A* path finder
-	var output=runPathFinder(matrix, fp, lp);
-	// draw the complete matrix with openList, closedList nodes
-	drawPlayGround();
+	var output=runPathFinder(grid, startPoint, endPoint, lCost, dCost, h);
+	// draw the complete grid with openList, closedList nodes
+	drawGrid();
 	canvasctx.font="12px Courier New";
 	canvasctx.fillStyle = 'white';
 	// if success, draw the path
@@ -234,27 +337,42 @@ function startPathFinding() {
 	{
 		canvasctx.fillText("END REACHED AT CYCLE " + cycle,15,20);
 		for (var i=0; i<output.length; i++)
-			drawPoint(output[i].x,output[i].y,CELL_LIMIT);
-		document.getElementById('text').innerHTML="A path has been found!";
+			drawPoint(output[i].x,output[i].y,CELL_PATH);
+		document.getElementById('text').innerHTML="Found in " + pathFindingTime + "ms";
 	}
 	if (deadend==true)
 	{
 		canvasctx.fillText("DEAD END REACHED AT CYCLE " + cycle,15,20);
-		drawPoint(lp.x,lp.y,CELL_LIMIT);
-		drawPoint(fp.x,fp.y,CELL_LIMIT);
-		document.getElementById('text').innerHTML="No path found :(";
+		document.getElementById('text').innerHTML="No path found in " + pathFindingTime + "ms";
 	}
+}
+
+
+// -------------------------------------------------------------------------
+// reset all the demo
+// -------------------------------------------------------------------------
+function resetDemo(resetCell) {
+	resetGrid(resetCell);
+	drawGrid();
 }
 	
 
 // -------------------------------------------------------------------------
+// init demo
+// -------------------------------------------------------------------------
 function initDemo() {
 	canvasctx = document.getElementById('playground').getContext('2d');
-	var cv = document.getElementById('playground');
-	cv.addEventListener("click", canvasOnClick, false);	
-	createMatrix();
+	// prevent default right click popup menu on canvas to show
+	document.getElementById('playground').oncontextmenu = function (e) {
+		e.preventDefault();
+	};
+	// create data grid
+	createGrid();
+	// reset values and draw the grid
 	resetDemo();
-	document.getElementById('startPathFinding').disabled=true;
 }
+
+
+
 
 
