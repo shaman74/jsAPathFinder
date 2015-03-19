@@ -69,4 +69,3 @@ function Point(x,y) {
 
 **output** is an array of Point, containing the path, from the last point to the first point
 
-
